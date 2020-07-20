@@ -1,7 +1,6 @@
 package team.mediasoft.study.java.ee.versionslist;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 public class VersionList<E> implements List {
     private int fakeSize = 0;
@@ -62,7 +61,7 @@ public class VersionList<E> implements List {
                 }
             }
             nextIndex--;
-            return lastReturned.item;////////////////////////
+            return lastReturned.item;
         }
 
         public int nextIndex() {
@@ -89,7 +88,13 @@ public class VersionList<E> implements List {
         public void set(E e) {
             if (lastReturned == null)
                 throw new IllegalStateException();
-            lastReturned.item = e;////////////////////////////
+            markAsDeleted(lastReturned);
+            if (next == null)
+                linkLast(e);
+            else
+                linkBefore(e, next);
+            lastReturned = next;
+            next = lastReturned.next;
         }
 
         public void add(E e) {
@@ -100,15 +105,39 @@ public class VersionList<E> implements List {
                 linkBefore(e, next);
             nextIndex++;
         }
+    }
 
-        public void forEachRemaining(Consumer<? super E> action) {/////////////////////
-            Objects.requireNonNull(action);
-            while (nextIndex < fakeSize) {
-                action.accept(next.item);
-                lastReturned = next;
-                next = next.next;
-                nextIndex++;
+    private class Itr implements Iterator<E> {
+
+        private VersionList.Node<E> current;
+        private int index = 0;
+
+        Itr() {
+            current = getNodeByIndex(index);// не first, т.к. он может быть удаленным, а getNodeByIndex возвращает ссылку на неудаленный элемент
+        }
+
+        @Override
+        public boolean hasNext() {
+            return index < fakeSize - 1;
+        }
+
+        @Override
+        public E next() throws IndexOutOfBoundsException {
+            E result = current.item;
+            if (!hasNext()) throw new IndexOutOfBoundsException("End of list.");
+            if (hasNext() && current.next.isDeleted()) {
+                while (current.next.isDeleted() && hasNext()) {
+                    current = current.next;
+                }
             }
+            current = current.next;
+            index++;
+            return result;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -148,7 +177,7 @@ public class VersionList<E> implements List {
 
     @Override
     public Iterator iterator() {
-        return listIterator(0);
+        return new VersionList.Itr();
     }
 
     @Override
@@ -194,8 +223,15 @@ public class VersionList<E> implements List {
 
     @Override
     public boolean containsAll(Collection c) {
-        return false;
-    }//////////////////////
+        boolean contains = true;
+        for (Object element: c) {
+            if (!contains(element)) {
+                contains = false;
+                break;
+            }
+        }
+        return contains;
+    }
 
     @Override
     public boolean addAll(Collection c) {
@@ -206,7 +242,11 @@ public class VersionList<E> implements List {
     }
 
     @Override
-    public boolean addAll(int index, Collection c) {//////////////////////////
+    public boolean addAll(int index, Collection c) {
+        for (Object element: c) {
+            add(index, element);
+            index++;
+        };
         return true;
     }
 
@@ -220,8 +260,13 @@ public class VersionList<E> implements List {
 
     @Override
     public boolean retainAll(Collection c) {
-        return false;
-    }//////////////////////
+        for (VersionList.Node<E> x = first; x != null; x = x.next) {
+            if (!x.isDeleted() && !c.contains(x.item)) {
+                markAsDeleted(x);
+            }
+        }
+        return true;
+    }
 
     @Override
     public void clear() {
@@ -242,45 +287,6 @@ public class VersionList<E> implements List {
         checkElementIndex(index);
         return getNodeByIndex(index).item;
     }
-
-    // Test methods
-    public Date getAddTime(int index) {
-        checkElementIndex(index);
-        return getNodeByIndex(index).createdAt;
-    }
-
-    public Date getDelTime(int index) {//////////////////
-        checkElementIndex(index);
-        return getNodeByIndex(index).deletedAt;
-    }
-
-    public Date getFairAddTime(int index) {
-        if (!(index >= 0 && index < trueSize))
-            throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
-        VersionList.Node<E> x = first;
-        for (int i = 0; i < index; i++)
-            x = x.next;
-        return x.createdAt;
-    }
-
-    public Date getFairDelTime(int index) {//////////////////
-        if (!(index >= 0 && index < trueSize))
-            throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
-        VersionList.Node<E> x = first;
-        for (int i = 0; i < index; i++)
-            x = x.next;
-        return x.deletedAt;
-    }
-
-    public Object getFair(int index) {
-        if (!(index >= 0 && index < trueSize))
-            throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
-        VersionList.Node<E> x = first;
-        for (int i = 0; i < index; i++)
-            x = x.next;
-        return x.item;
-    }
-    // Test methods
 
     @Override
     public Object set(int index, Object element) {
@@ -360,8 +366,19 @@ public class VersionList<E> implements List {
     }
 
     @Override
-    public List subList(int fromIndex, int toIndex) {//////////////////////////
-        return null;
+    public List subList(int fromIndex, int toIndex) {
+        checkPositionIndex(fromIndex);
+        checkPositionIndex(toIndex);
+        checkIndexOrder(fromIndex, toIndex);
+        List result = new ArrayList();
+        VersionList.Node<E> x = getNodeByIndex(fromIndex);
+        for (int i = fromIndex; i <= toIndex; i++) {
+            if (!x.isDeleted()) {
+                result.add(x.item);
+            }
+            x = x.next;
+        }
+        return result;
     }
 
     private void linkLast(Object o) {
@@ -380,7 +397,7 @@ public class VersionList<E> implements List {
         List result = new ArrayList();
         VersionList.Node<E> x = first;
         for (int i = 0; i < trueSize; i++) {
-            if (x.createdAt.before(date) && (!x.isDeleted() || x.deletedAt.after(date))) {
+            if ((x.createdAt.before(date) || x.createdAt.equals(date)) && (!x.isDeleted() || x.deletedAt.after(date))) {
                 result.add(x.item);
             }
             x = x.next;
@@ -408,19 +425,13 @@ public class VersionList<E> implements List {
 
     private Node<E> getNodeByIndex(int index) {
         VersionList.Node<E> x = first;
-        for (int i = 0; i < trueSize; i++) {//Поиск первого неудаленнго элемента
-            if (!x.isDeleted()) {
-                break;
-            }
-            x = x.next;
-        }
-        for (int i = 0; i < index; i++) {//Проход по index эл-тов с пропуском удаленных
-            x = x.next;
+        for (int i = 0; i < index; i++) {
             if (x.isDeleted()) {
                 while (x.isDeleted() && x.next != null) {
                     x = x.next;
                 }
             }
+            x = x.next;
         }
         return x;
     }
@@ -435,12 +446,21 @@ public class VersionList<E> implements List {
     }
 
     private String outOfBoundsMsg(int index) {
-        return "Index: "+index+", Size: "+ fakeSize;
+        return "Index: "+ index +", Size: "+ fakeSize;
+    }
+
+    private String indexOrderErrorMsg(int fromIndex, int toIndex) {
+        return "From index: "+ fromIndex +" > toIndex: "+ toIndex;
     }
 
     private void checkPositionIndex(int index) {
         if (!isPositionIndex(index))
             throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
+    }
+
+    private void checkIndexOrder(int fromIndex, int toIndex) {
+        if (fromIndex > toIndex)
+            throw new IndexOutOfBoundsException(indexOrderErrorMsg(fromIndex, toIndex));
     }
 
     private boolean isPositionIndex(int index) {

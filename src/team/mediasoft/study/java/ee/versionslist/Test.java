@@ -2,36 +2,46 @@ package team.mediasoft.study.java.ee.versionslist;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.TimeUnit;
 
 public class Test {
     public static void main(String[] args) {
+
         VersionList<String> l = new VersionList<String>();
+
         l.add("hfhg");
         System.out.println("added hfhg at " + new Date());
-        sleep(5);
+        sleep(1);
+        Date checkDate = new Date();
         l.add("kl;k");
         System.out.println("added kl;k at " + new Date());
-        sleep(5);
-        l.add("sdfs");
-        System.out.println("added sdfs at " + new Date());
-        sleep(5);
-        l.add("vcbc");
-        System.out.println("added vcbc at " + new Date());
-        sleep(5);
-        l.add("tryu");
-        System.out.println("added tryu at " + new Date());
-        sleep(5);
-        l.add(1, "ffff");
-        System.out.println("added ffff at position 1 at " + new Date());
-        sleep(5);
+        sleep(1);
+
         l.set(0, "gggg");
         System.out.println("set value to gggg at position 0 at " + new Date());
-        sleep(5);
+        sleep(1);
+
+        l.add("sdfs");
+        System.out.println("added sdfs at " + new Date());
+        sleep(1);
+
+        l.add("vcbc");
+        System.out.println("added vcbc at " + new Date());
+        sleep(1);
+
+        l.add("tryu");
+        System.out.println("added tryu at " + new Date());
+        sleep(1);
+
         l.remove("vcbc");
         System.out.println("removed vcbc at " + new Date());
+        sleep(1);
+
+        l.add(1, "ffff");
+        System.out.println("added ffff at position 1 at " + new Date());
 
         System.out.println("---------------------------------");
 
@@ -43,7 +53,7 @@ public class Test {
 
         System.out.println("---------------------------------");
 
-        String sDate = "07/17/2020 16:00:30";
+        /*String sDate = "07/17/2020 18:21:10";
         SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
         Date date;
         try {
@@ -51,9 +61,11 @@ public class Test {
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
             date = new Date();
-        }
+        }*/
 
-        List lst = l.getVersionByDate(date);
+        List lst = l.getVersionByDate(checkDate);
+
+        System.out.println("Check time: " + checkDate);
 
         ListIterator<String> litLst = lst.listIterator();
         while (litLst.hasNext()) {
