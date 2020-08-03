@@ -1,10 +1,7 @@
 package team.mediasoft.study.java.ee.versionslist;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class Test {
@@ -12,6 +9,7 @@ public class Test {
 
         VersionList<String> l = new VersionList<String>();
 
+        // region SET_VALUES
         l.add("hfhg");
         System.out.println("added hfhg at " + new Date());
         sleep(1);
@@ -42,6 +40,7 @@ public class Test {
 
         l.add(1, "ffff");
         System.out.println("added ffff at position 1 at " + new Date());
+        //endregion
 
         System.out.println("---------------------------------");
 
@@ -72,11 +71,19 @@ public class Test {
             String item = litLst.next();
             System.out.println("result item => " + item);
         }
+
+        l.stream().forEach(System.out::println);
+        Spliterator<String> si1 = l.stream().spliterator();
+        Spliterator<String> si2 = si1.trySplit();
+        System.out.println("------------------------");
+        si1.forEachRemaining(System.out::println);
+        System.out.println("------------------------");
+        si2.forEachRemaining(System.out::println);
     }
 
     private static void sleep(int seconds) {
         try {
-            TimeUnit.SECONDS.sleep(seconds);
+            //TimeUnit.SECONDS.sleep(seconds);
             System.out.println("Awake after " + seconds + " seconds sleep..");
         } catch (Exception ex) {
             System.out.println(ex.getMessage());

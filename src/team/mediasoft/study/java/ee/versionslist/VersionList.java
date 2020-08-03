@@ -1,6 +1,7 @@
 package team.mediasoft.study.java.ee.versionslist;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class VersionList<E> implements List {
     private int fakeSize = 0;
@@ -379,6 +380,100 @@ public class VersionList<E> implements List {
             x = x.next;
         }
         return result;
+    }
+
+    @Override
+    public Spliterator<E> spliterator() {
+        return new VersionList.VLSpliterator<>(this, -1);
+    }
+
+    static final class VLSpliterator<E> implements Spliterator<E> {
+        final VersionList<E> list;
+        VersionList.Node<E> current;
+        int est;
+
+        VLSpliterator(VersionList<E> list, int est) {
+            this.list = list;
+            this.est = est;
+        }
+
+        final int getEst() {
+            int s;
+            final VersionList<E> lst;
+            if ((s = est) < 0) {
+                if ((lst = list) == null)
+                    s = est = 0;
+                else {
+                    current = lst.first;
+                    s = est = lst.trueSize;
+                }
+            }
+            return s;
+        }
+
+        public long estimateSize() { return (long) getEst(); }
+
+        public Spliterator<E> trySplit() {
+            VersionList.Node<E> p;
+            int s = getEst();
+            if (s > 1 && (p = current) != null) {
+                int n = s / 2;
+                ArrayList<Object> a = new ArrayList<Object>();
+                int j = 0;
+                do {
+                    if (!p.isDeleted()) {
+                        a.add(p.item);
+                    }
+                    j++;
+                } while ((p = p.next) != null && j < n);
+                current = p;
+                est = s - j;
+                int length = a.size();
+                Object[] arr = a.toArray();
+                return Spliterators.spliterator(arr, 0, length, Spliterator.ORDERED);
+            }
+            return null;
+        }
+
+        public void forEachRemaining(Consumer<? super E> action) {
+            VersionList.Node<E> p; int n;
+            if (action == null) throw new NullPointerException();
+            if ((n = getEst()) > 0 && (p = current) != null) {
+                current = null;
+                est = 0;
+                do {
+                    if (!p.isDeleted()) {
+                        E e = p.item;
+                        p = p.next;
+                        action.accept(e);
+                    } else {
+                        p = p.next;
+                    }
+
+                } while (p != null && --n > 0);
+            }
+        }
+
+        public boolean tryAdvance(Consumer<? super E> action) {
+            VersionList.Node<E> p;
+            if (action == null) throw new NullPointerException();
+            if (getEst() > 0 && (p = current) != null) {
+                while (p.isDeleted() && est > 0) {
+                    --est;
+                    current = p.next;
+                }
+                --est;
+                E e = p.item;
+                current = p.next;
+                action.accept(e);
+                return true;
+            }
+            return false;
+        }
+
+        public int characteristics() {
+            return Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED;
+        }
     }
 
     private void linkLast(Object o) {
